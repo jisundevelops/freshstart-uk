@@ -173,7 +173,7 @@ export function CostCalculatorTool({ initial, path }: CostCalculatorToolProps) {
             className="mt-6 w-full"
             onClick={handleShare}
           >
-            <Share2 className="h-4 w-4" />
+            <Share2 className="h-4 w-4" aria-hidden />
             Save & share calculation
           </Button>
           {shareMsg && (
@@ -256,6 +256,7 @@ function SliderField<T extends string>({
         aria-valuemin={0}
         aria-valuemax={options.length - 1}
         aria-valuenow={index}
+        aria-valuetext={options[index]?.label ?? options[0]?.label ?? ""}
         aria-label={label}
       />
       <p className="mt-2 text-sm font-medium text-foreground">

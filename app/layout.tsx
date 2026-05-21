@@ -28,9 +28,20 @@ export default function RootLayout({
   return (
     <html
       lang="en-GB"
+      dir="ltr"
       className={`dark ${fontSyne.variable} ${fontDmSans.variable}`}
     >
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      </head>
       <body className="relative flex min-h-screen flex-col bg-background">
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-accent focus:px-4 focus:py-2 focus:text-background focus:outline-none"
+        >
+          Skip to main content
+        </a>
         {isAdmin ? (
           children
         ) : (
@@ -38,7 +49,9 @@ export default function RootLayout({
             <GridOverlay />
             <Navigation />
             <JsonLd data={websiteJsonLd()} />
-            <main className="relative z-10 flex-1">{children}</main>
+            <main id="main-content" className="relative z-10 flex-1">
+              {children}
+            </main>
             <AffiliateDisclosure />
             <Footer />
           </>

@@ -55,6 +55,8 @@ export async function generateMetadata({
     type: "article",
     publishedTime: guide.publishedAt?.toISOString(),
     modifiedTime: guide.updatedAt.toISOString(),
+    imagePath: guide.coverImage ?? undefined,
+    keywords: [formatLabel(guide.category), "UK student guide", guide.title],
   });
 }
 
@@ -95,6 +97,8 @@ export default async function GuidePage({ params }: GuidePageProps) {
             datePublished:
               guide.publishedAt?.toISOString() ?? guide.createdAt.toISOString(),
             dateModified: guide.updatedAt.toISOString(),
+            imagePath: guide.coverImage ?? undefined,
+            wordCount: guide.content.split(/\s+/).length,
           })}
         />
         <Breadcrumbs items={breadcrumbs} />

@@ -56,6 +56,8 @@ export async function generateMetadata({
     publishedTime: post.publishedAt?.toISOString(),
     modifiedTime: post.updatedAt.toISOString(),
     tags: post.tags,
+    imagePath: post.coverImage ?? undefined,
+    keywords: post.tags,
   });
 }
 
@@ -94,6 +96,8 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
               post.publishedAt?.toISOString() ?? post.createdAt.toISOString(),
             dateModified: post.updatedAt.toISOString(),
             authorName: post.authorName,
+            imagePath: post.coverImage ?? undefined,
+            wordCount: post.content.split(/\s+/).length,
           })}
         />
         <Breadcrumbs

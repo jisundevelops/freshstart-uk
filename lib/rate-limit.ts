@@ -2,7 +2,7 @@ import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import type { NextRequest } from "next/server";
 
-export type RateLimitPreset = "api" | "auth" | "analytics";
+export type RateLimitPreset = "api" | "auth" | "analytics" | "admin";
 
 const PRESETS: Record<
   RateLimitPreset,
@@ -11,23 +11,29 @@ const PRESETS: Record<
   api: { requests: 60, window: "1 m" },
   auth: { requests: 10, window: "1 m" },
   analytics: { requests: 120, window: "1 m" },
+  admin: { requests: 30, window: "1 m" },
 };
 
 const limiters = new Map<RateLimitPreset, Ratelimit>();
 
+/** Cached edge Redis instance — avoids creating a new client per request */
+let edgeRedis: Redis | null = null;
+
 function getEdgeRedis(): Redis | null {
+  if (edgeRedis) return edgeRedis;
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) return null;
-  return new Redis({ url, token });
+  edgeRedis = new Redis({ url, token });
+  return edgeRedis;
 }
 
 function getLimiter(preset: RateLimitPreset): Ratelimit | null {
-  const redis = getEdgeRedis();
-  if (!redis) return null;
-
   const existing = limiters.get(preset);
   if (existing) return existing;
+
+  const redis = getEdgeRedis();
+  if (!redis) return null;
 
   const config = PRESETS[preset];
   const limiter = new Ratelimit({
@@ -41,10 +47,17 @@ function getLimiter(preset: RateLimitPreset): Ratelimit | null {
   return limiter;
 }
 
+/** Extract real client IP — uses last entry in x-forwarded-for (Vercel CDN appends real IP last) */
 function getIdentifier(request: NextRequest): string {
   const forwarded = request.headers.get("x-forwarded-for");
-  const ip = forwarded?.split(",")[0]?.trim() ?? "127.0.0.1";
-  return ip;
+  if (forwarded) {
+    const ips = forwarded.split(",").map((ip) => ip.trim());
+    const realIp = ips[ips.length - 1];
+    if (realIp && realIp !== "unknown") return realIp;
+  }
+  const realIp = request.headers.get("x-real-ip");
+  if (realIp) return realIp;
+  return `anon:${request.headers.get("user-agent")?.slice(0, 50) ?? "unknown"}`;
 }
 
 export async function checkRateLimit(
@@ -54,6 +67,9 @@ export async function checkRateLimit(
   const limiter = getLimiter(preset);
 
   if (!limiter) {
+    if (process.env.NODE_ENV === "production") {
+      console.warn("[rate-limit] Redis unavailable — rate limiting bypassed");
+    }
     return { success: true };
   }
 

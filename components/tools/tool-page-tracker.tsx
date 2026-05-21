@@ -15,7 +15,9 @@ export function ToolPageTracker({
   useEffect(() => {
     if (tracked.current) return;
     tracked.current = true;
-    trackToolUse(toolSlug, path);
+    trackToolUse(toolSlug, path).catch(() => {
+      // Silently fail — tracking is non-critical
+    });
   }, [toolSlug, path]);
 
   return null;

@@ -17,6 +17,8 @@ export interface PageSeoInput {
   modifiedTime?: string;
   tags?: string[];
   imagePath?: string;
+  noIndex?: boolean;
+  keywords?: string[];
 }
 
 export function buildPageMetadata(input: PageSeoInput): Metadata {
@@ -26,6 +28,7 @@ export function buildPageMetadata(input: PageSeoInput): Metadata {
   return {
     title: input.title,
     description: input.description,
+    keywords: input.keywords?.join(", "),
     alternates: {
       canonical: url,
       languages: {
@@ -54,8 +57,9 @@ export function buildPageMetadata(input: PageSeoInput): Metadata {
       images: [ogImage],
     },
     robots: {
-      index: true,
-      follow: true,
+      index: !input.noIndex,
+      follow: !input.noIndex,
+      ...(input.noIndex ? { googleBot: { index: false, follow: false } } : {}),
     },
   };
 }
@@ -105,6 +109,8 @@ export function articleJsonLd(input: {
   datePublished: string;
   dateModified?: string;
   authorName?: string;
+  imagePath?: string;
+  wordCount?: number;
 }): Record<string, unknown> {
   return {
     "@context": "https://schema.org",
@@ -114,16 +120,27 @@ export function articleJsonLd(input: {
     url: absoluteUrl(input.path),
     datePublished: input.datePublished,
     dateModified: input.dateModified ?? input.datePublished,
+    image: absoluteUrl(input.imagePath ?? DEFAULT_OG_IMAGE),
     author: {
       "@type": "Organization",
       name: input.authorName ?? SITE_NAME,
+      url: absoluteUrl("/"),
     },
     publisher: {
       "@type": "Organization",
       name: SITE_NAME,
       url: absoluteUrl("/"),
+      logo: {
+        "@type": "ImageObject",
+        url: absoluteUrl(DEFAULT_OG_IMAGE),
+      },
     },
     inLanguage: "en-GB",
+    mainEntityOfPage: {
+      "@type": "WebPage",
+      "@id": absoluteUrl(input.path),
+    },
+    ...(input.wordCount ? { wordCount: input.wordCount } : {}),
   };
 }
 
@@ -140,6 +157,48 @@ export function faqJsonLd(
         "@type": "Answer",
         text: item.answer,
       },
+    })),
+  };
+}
+
+/** SoftwareApplication JSON-LD for interactive tool pages */
+export function softwareApplicationJsonLd(input: {
+  name: string;
+  description: string;
+  path: string;
+  applicationCategory: string;
+  operatingSystem?: string;
+  offers?: { price: string; priceCurrency: string };
+}): Record<string, unknown> {
+  return {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: input.name,
+    description: input.description,
+    url: absoluteUrl(input.path),
+    applicationCategory: input.applicationCategory,
+    operatingSystem: input.operatingSystem ?? "Web",
+    offers: input.offers ?? {
+      "@type": "Offer",
+      price: "0",
+      priceCurrency: "GBP",
+    },
+    inLanguage: "en-GB",
+  };
+}
+
+/** ItemList JSON-LD for listing pages */
+export function itemListJsonLd(
+  items: { name: string; path: string }[]
+): Record<string, unknown> {
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    itemListElement: items.map((item, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: item.name,
+      url: absoluteUrl(item.path),
     })),
   };
 }

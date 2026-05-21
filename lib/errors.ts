@@ -69,7 +69,14 @@ export class RateLimitError extends AppError {
 }
 
 export function getErrorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
+  if (error instanceof AppError) return error.message;
+  if (error instanceof Error) {
+    // In production, hide internal error details from non-operational errors
+    if (process.env.NODE_ENV === "production") {
+      return "An unexpected error occurred";
+    }
+    return error.message;
+  }
   if (typeof error === "string") return error;
   return "An unexpected error occurred";
 }

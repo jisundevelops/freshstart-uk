@@ -46,7 +46,7 @@ export function BlogCard({ post }: BlogCardProps) {
             </span>
             <span className="inline-flex items-center gap-1 font-medium text-accent">
               Read
-              <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+              <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
             </span>
           </div>
         </CardContent>

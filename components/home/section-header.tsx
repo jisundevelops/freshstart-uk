@@ -30,7 +30,7 @@ export function SectionHeader({
           className="inline-flex items-center gap-1 text-sm font-medium text-accent transition-colors hover:text-foreground"
         >
           {linkLabel}
-          <ArrowRight className="h-4 w-4" />
+          <ArrowRight className="h-4 w-4" aria-hidden />
         </Link>
       )}
     </div>

@@ -120,7 +120,7 @@ export default async function HomePage() {
                     <CardContent>
                       <span className="inline-flex items-center gap-1 text-sm font-medium text-accent">
                         Open tool
-                        <ArrowRight className="h-4 w-4" />
+                        <ArrowRight className="h-4 w-4" aria-hidden />
                       </span>
                     </CardContent>
                   </Link>
@@ -161,7 +161,7 @@ export default async function HomePage() {
           <Button size="lg" asChild>
             <Link href="/scholarships">
               Explore UK scholarships
-              <ArrowRight className="h-4 w-4" />
+              <ArrowRight className="h-4 w-4" aria-hidden />
             </Link>
           </Button>
         </Container>

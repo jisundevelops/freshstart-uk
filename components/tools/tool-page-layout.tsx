@@ -25,7 +25,7 @@ export function ToolPageLayout({
   }));
 
   return (
-    <section className="py-10 md:py-14">
+    <section className="py-10 md:py-14" aria-labelledby="tool-heading">
       <Container>
         <JsonLd
           data={breadcrumbJsonLd([
@@ -37,7 +37,10 @@ export function ToolPageLayout({
         {faq && faq.length > 0 && <JsonLd data={faqJsonLd(faq)} />}
         <Breadcrumbs items={breadcrumbs} />
         <header className="mb-8 max-w-3xl">
-          <h1 className="gradient-heading font-heading text-3xl font-bold md:text-4xl lg:text-5xl">
+          <h1
+            id="tool-heading"
+            className="gradient-heading font-heading text-3xl font-bold md:text-4xl lg:text-5xl"
+          >
             {title}
           </h1>
           <p className="mt-4 text-lg text-muted-foreground">{description}</p>

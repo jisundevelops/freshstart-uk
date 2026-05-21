@@ -1,7 +1,9 @@
 import type { NextRequest } from "next/server";
-import { ZodSchema } from "zod";
+import { z, ZodSchema } from "zod";
 import { ValidationError } from "@/lib/errors";
 import { checkRateLimit, type RateLimitPreset } from "@/lib/rate-limit";
+
+type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 type RouteHandler<T> = (
   request: NextRequest,
@@ -9,9 +11,50 @@ type RouteHandler<T> = (
 ) => Promise<Response>;
 
 interface ApiHandlerOptions<TBody> {
-  schema?: ZodSchema<TBody>;
+  schema?: z.ZodType<TBody>;
   rateLimit?: RateLimitPreset;
   requireAuth?: boolean;
+  methods?: HttpMethod[];
+}
+
+/** Maximum request body size in bytes (1 MB) */
+const MAX_BODY_SIZE = 1024 * 1024;
+
+/**
+ * Validate CSRF by checking Origin / Referer header matches our host.
+ * Next.js server actions have built-in CSRF, but API routes do not.
+ */
+function isCsrfValid(request: NextRequest): boolean {
+  const origin = request.headers.get("origin");
+  const referer = request.headers.get("referer");
+  const host = request.headers.get("host");
+
+  if (!host) return true; // Non-HTTP requests (unlikely but safe)
+
+  const allowedOrigins = [host];
+
+  if (origin) {
+    const originHost = origin.replace(/^https?:\/\//, "");
+    return allowedOrigins.some((h) => originHost === h);
+  }
+
+  if (referer) {
+    try {
+      const refererUrl = new URL(referer);
+      return allowedOrigins.some((h) => refererUrl.host === h);
+    } catch {
+      return false;
+    }
+  }
+
+  // GET/HEAD/OPTIONS don't need CSRF
+  const method = request.method.toUpperCase();
+  if (method === "GET" || method === "HEAD" || method === "OPTIONS") {
+    return true;
+  }
+
+  // No origin or referer on a mutating request — reject
+  return false;
 }
 
 export function createApiHandler<TBody = undefined>(
@@ -23,6 +66,40 @@ export function createApiHandler<TBody = undefined>(
     routeContext?: { params?: Promise<Record<string, string>> }
   ): Promise<Response> => {
     try {
+      // Method validation
+      if (options.methods && options.methods.length > 0) {
+        const method = request.method.toUpperCase() as HttpMethod;
+        if (!options.methods.includes(method)) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: "Method not allowed",
+              code: "METHOD_NOT_ALLOWED",
+            }),
+            { status: 405, headers: { "Content-Type": "application/json" } }
+          );
+        }
+      }
+
+      // CSRF protection for mutating requests
+      const method = request.method.toUpperCase();
+      if (
+        (method === "POST" ||
+          method === "PUT" ||
+          method === "PATCH" ||
+          method === "DELETE") &&
+        !isCsrfValid(request)
+      ) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "CSRF validation failed",
+            code: "CSRF_ERROR",
+          }),
+          { status: 403, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
       if (options.rateLimit) {
         const limited = await checkRateLimit(request, options.rateLimit);
         if (!limited.success) {
@@ -60,11 +137,36 @@ export function createApiHandler<TBody = undefined>(
       }
 
       let body = undefined as TBody;
-      if (options.schema && request.method !== "GET") {
-        const json: unknown = await request.json();
+      if (options.schema && method !== "GET") {
+        const rawBody = await request.text();
+
+        // Body size limit
+        if (rawBody.length > MAX_BODY_SIZE) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: "Request body too large",
+              code: "PAYLOAD_TOO_LARGE",
+            }),
+            { status: 413, headers: { "Content-Type": "application/json" } }
+          );
+        }
+
+        let json: unknown;
+        try {
+          json = JSON.parse(rawBody);
+        } catch {
+          throw new ValidationError("Invalid JSON in request body");
+        }
+
         const parsed = options.schema.safeParse(json);
         if (!parsed.success) {
-          throw new ValidationError(parsed.error.message);
+          // Return first error message only — avoid leaking full Zod tree
+          const firstError = parsed.error.issues[0];
+          const message = firstError
+            ? `${firstError.path.join(".")}: ${firstError.message}`
+            : "Validation failed";
+          throw new ValidationError(message);
         }
         body = parsed.data;
       }

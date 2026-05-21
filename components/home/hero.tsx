@@ -28,7 +28,7 @@ export function HeroSection() {
             <Button size="lg" asChild>
               <Link href="/guides">
                 Explore guides
-                <ArrowRight className="h-4 w-4" />
+                <ArrowRight className="h-4 w-4" aria-hidden />
               </Link>
             </Button>
             <Button size="lg" variant="secondary" asChild>

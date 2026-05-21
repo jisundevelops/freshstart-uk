@@ -27,7 +27,7 @@ export function SocialShare({ title, path }: SocialShareProps) {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2" aria-label="Share article">
+    <nav className="flex flex-wrap items-center gap-2" aria-label="Share article">
       <span className="mr-2 text-sm font-medium text-muted-foreground">
         Share
       </span>
@@ -38,7 +38,7 @@ export function SocialShare({ title, path }: SocialShareProps) {
           rel="noopener noreferrer"
           aria-label="Share on X (Twitter)"
         >
-          <Twitter className="h-4 w-4" />
+          <Twitter className="h-4 w-4" aria-hidden />
         </a>
       </Button>
       <Button variant="outline" size="sm" asChild>
@@ -48,7 +48,7 @@ export function SocialShare({ title, path }: SocialShareProps) {
           rel="noopener noreferrer"
           aria-label="Share on LinkedIn"
         >
-          <Linkedin className="h-4 w-4" />
+          <Linkedin className="h-4 w-4" aria-hidden />
         </a>
       </Button>
       <Button
@@ -58,9 +58,9 @@ export function SocialShare({ title, path }: SocialShareProps) {
         onClick={copyLink}
         aria-label="Copy link"
       >
-        <Link2 className="h-4 w-4" />
+        <Link2 className="h-4 w-4" aria-hidden />
         <span className="ml-1 text-xs">{copied ? "Copied" : "Copy"}</span>
       </Button>
-    </div>
+    </nav>
   );
 }

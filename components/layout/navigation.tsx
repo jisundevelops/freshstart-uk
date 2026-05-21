@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { Container } from "@/components/ui/container";
@@ -11,9 +11,72 @@ import { MotionFadeIn } from "@/components/ui/motion";
 import { NAV_LINKS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
+const MOBILE_NAV_ID = "mobile-navigation";
+
 export function Navigation() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const mobileNavRef = useRef<HTMLElement>(null);
+  const hamburgerRef = useRef<HTMLButtonElement>(null);
+
+  // Close on Escape key
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape" && mobileOpen) {
+        setMobileOpen(false);
+        hamburgerRef.current?.focus();
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [mobileOpen]);
+
+  // Focus trap for mobile menu
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const nav = mobileNavRef.current;
+    if (!nav) return;
+
+    const focusable = nav.querySelectorAll<HTMLElement>(
+      'a[href], button, [tabindex]:not([tabindex="-1"])'
+    );
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+
+    function handleTabTrap(e: KeyboardEvent) {
+      if (e.key !== "Tab") return;
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last?.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first?.focus();
+        }
+      }
+    }
+
+    nav.addEventListener("keydown", handleTabTrap);
+    first?.focus();
+
+    return () => nav.removeEventListener("keydown", handleTabTrap);
+  }, [mobileOpen]);
+
+  // Prevent body scroll when mobile menu is open
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileOpen]);
+
+  const closeMobile = useCallback(() => setMobileOpen(false), []);
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/50 glass-strong">
@@ -54,22 +117,26 @@ export function Navigation() {
           </div>
 
           <button
+            ref={hamburgerRef}
             type="button"
             className="inline-flex items-center justify-center rounded-md p-2 text-foreground md:hidden"
             aria-expanded={mobileOpen}
+            aria-controls={MOBILE_NAV_ID}
             aria-label={mobileOpen ? "Close menu" : "Open menu"}
             onClick={() => setMobileOpen((open) => !open)}
           >
             {mobileOpen ? (
-              <X className="h-6 w-6" />
+              <X className="h-6 w-6" aria-hidden />
             ) : (
-              <Menu className="h-6 w-6" />
+              <Menu className="h-6 w-6" aria-hidden />
             )}
           </button>
         </MotionFadeIn>
 
         {mobileOpen && (
           <nav
+            id={MOBILE_NAV_ID}
+            ref={mobileNavRef}
             className="border-t border-border/50 py-4 md:hidden"
             aria-label="Mobile navigation"
           >
@@ -89,7 +156,7 @@ export function Navigation() {
                           ? "bg-accent/10 text-accent"
                           : "text-muted-foreground hover:bg-surface/50 hover:text-foreground"
                       )}
-                      onClick={() => setMobileOpen(false)}
+                      onClick={closeMobile}
                     >
                       {link.label}
                     </Link>
@@ -98,7 +165,7 @@ export function Navigation() {
               })}
               <li className="pt-2">
                 <Button variant="default" className="w-full" asChild>
-                  <Link href="/guides" onClick={() => setMobileOpen(false)}>
+                  <Link href="/guides" onClick={closeMobile}>
                     Get started
                   </Link>
                 </Button>

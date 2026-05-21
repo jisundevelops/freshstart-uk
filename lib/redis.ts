@@ -84,6 +84,10 @@ export async function cacheGetOrSet<T>(
   return fresh;
 }
 
+/**
+ * Invalidate all cache keys matching a namespace prefix.
+ * Uses SCAN instead of KEYS to avoid blocking the Redis event loop.
+ */
 export async function cacheInvalidatePattern(
   namespace: string
 ): Promise<void> {
@@ -92,10 +96,15 @@ export async function cacheInvalidatePattern(
 
   const pattern = `${CACHE_PREFIX}${namespace}:*`;
   try {
-    const keys = await client.keys(pattern);
-    if (keys.length > 0) {
-      await client.del(...keys);
-    }
+    let cursor = "0";
+    do {
+      const result = await client.scan(cursor, { match: pattern, count: 100 });
+      cursor = result[0];
+      const keys = result[1];
+      if (keys.length > 0) {
+        await client.del(...keys);
+      }
+    } while (cursor !== "0");
   } catch (error) {
     console.error("[redis] cacheInvalidatePattern failed:", error);
   }

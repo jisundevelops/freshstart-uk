@@ -4,7 +4,8 @@ import { ToolPageLayout } from "@/components/tools/tool-page-layout";
 import { SimGuideExplorer } from "@/components/tools/sim-guide-explorer";
 import { ToolPageTracker } from "@/components/tools/tool-page-tracker";
 import { ComparisonSkeleton } from "@/components/tools/comparison-skeleton";
-import { buildPageMetadata } from "@/lib/seo";
+import { JsonLd } from "@/components/seo/json-ld";
+import { buildPageMetadata, softwareApplicationJsonLd } from "@/lib/seo";
 import { SIM_GUIDE_FAQ, SIM_TOOL_SLUG } from "@/lib/tools/sim-guide";
 import { fetchSimGuideRows } from "@/lib/tools/fetch";
 
@@ -15,6 +16,7 @@ export const metadata = buildPageMetadata({
   description:
     "Compare giffgaff, Lebara, Lyca, EE, Three, and VOXI — international calls, unlimited data, eSIM, and PAYG plans.",
   path: PATH,
+  keywords: ["UK SIM comparison", "student SIM card", "giffgaff", "Lebara", "eSIM", "international calls UK"],
 });
 
 export const revalidate = 3600;
@@ -33,6 +35,14 @@ export default async function SimGuidePage() {
       description="Find the right PAYG or contract SIM for your first weeks in the UK. Filter by international calls, unlimited data, eSIM, and price."
       faq={SIM_GUIDE_FAQ}
     >
+      <JsonLd
+        data={softwareApplicationJsonLd({
+          name: "UK SIM & Mobile Comparison",
+          description: "Compare UK SIM providers for international students — international calls, unlimited data, eSIM, and PAYG plans.",
+          path: PATH,
+          applicationCategory: "UtilitiesApplication",
+        })}
+      />
       <ToolPageTracker toolSlug={SIM_TOOL_SLUG} path={PATH} />
       <p className="mb-6 text-sm text-muted">
         Step-by-step help in our{" "}

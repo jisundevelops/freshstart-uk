@@ -10,7 +10,7 @@ import { Container } from "@/components/ui/container";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Breadcrumbs } from "@/components/seo/breadcrumbs";
 import { JsonLd } from "@/components/seo/json-ld";
-import { buildPageMetadata, breadcrumbJsonLd } from "@/lib/seo";
+import { buildPageMetadata, breadcrumbJsonLd, itemListJsonLd } from "@/lib/seo";
 import { fetchToolsCatalog } from "@/lib/tools/fetch";
 import { resolveToolHref } from "@/lib/tools/routes";
 
@@ -19,6 +19,7 @@ export const metadata = buildPageMetadata({
   description:
     "Compare UK student banks, SIM plans, and estimate your monthly cost of living as an international student.",
   path: "/tools",
+  keywords: ["UK student tools", "bank comparison", "SIM comparison", "cost calculator", "student budget"],
 });
 
 export const revalidate = 3600;
@@ -40,6 +41,11 @@ export default async function ToolsIndexPage() {
             { name: "Home", path: "/" },
             { name: "Tools", path: "/tools" },
           ])}
+        />
+        <JsonLd
+          data={itemListJsonLd(
+            tools.map((t) => ({ name: t.name, path: resolveToolHref(t.slug, t.href) }))
+          )}
         />
         <Breadcrumbs
           items={[
@@ -77,7 +83,7 @@ export default async function ToolsIndexPage() {
                       </p>
                       <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-accent">
                         Open tool
-                        <ArrowRight className="h-4 w-4" />
+                        <ArrowRight className="h-4 w-4" aria-hidden />
                       </span>
                     </CardContent>
                   </Link>

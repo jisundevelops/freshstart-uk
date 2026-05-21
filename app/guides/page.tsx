@@ -3,7 +3,7 @@ import { Container } from "@/components/ui/container";
 import { Breadcrumbs } from "@/components/seo/breadcrumbs";
 import { GuidesExplorer } from "@/components/guides/guides-explorer";
 import { JsonLd } from "@/components/seo/json-ld";
-import { buildPageMetadata, breadcrumbJsonLd } from "@/lib/seo";
+import { buildPageMetadata, breadcrumbJsonLd, itemListJsonLd } from "@/lib/seo";
 import { extractCategories } from "@/lib/content";
 import { fetchPublishedGuides } from "@/lib/data";
 import { GuidesGridSkeleton } from "@/components/guides/guides-skeleton";
@@ -13,6 +13,7 @@ export const metadata = buildPageMetadata({
   description:
     "Practical UK arrival guides for international students — banking, SIM cards, NI numbers, GP registration, and more.",
   path: "/guides",
+  keywords: ["UK student guides", "banking UK", "SIM card UK", "GP registration", "NI number"],
 });
 
 export const revalidate = 3600;
@@ -29,6 +30,11 @@ export default async function GuidesPage() {
             { name: "Home", path: "/" },
             { name: "Guides", path: "/guides" },
           ])}
+        />
+        <JsonLd
+          data={itemListJsonLd(
+            guides.map((g) => ({ name: g.title, path: `/guides/${g.slug}` }))
+          )}
         />
         <Breadcrumbs
           items={[

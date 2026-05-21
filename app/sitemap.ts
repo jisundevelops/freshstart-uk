@@ -4,9 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { PublishStatus } from "@prisma/client";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const base = absoluteUrl("/");
   const staticRoutes: MetadataRoute.Sitemap = [
-    { url: base, lastModified: new Date(), changeFrequency: "weekly", priority: 1 },
+    { url: absoluteUrl("/"), lastModified: new Date(), changeFrequency: "weekly", priority: 1 },
     {
       url: absoluteUrl("/guides"),
       lastModified: new Date(),
@@ -48,6 +47,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 0.85,
+    },
+    {
+      url: absoluteUrl("/privacy"),
+      lastModified: new Date(),
+      changeFrequency: "yearly",
+      priority: 0.3,
+    },
+    {
+      url: absoluteUrl("/terms"),
+      lastModified: new Date(),
+      changeFrequency: "yearly",
+      priority: 0.3,
     },
   ];
 

@@ -3,7 +3,7 @@ import { Container } from "@/components/ui/container";
 import { Breadcrumbs } from "@/components/seo/breadcrumbs";
 import { BlogExplorer } from "@/components/blog/blog-explorer";
 import { JsonLd } from "@/components/seo/json-ld";
-import { buildPageMetadata, breadcrumbJsonLd } from "@/lib/seo";
+import { buildPageMetadata, breadcrumbJsonLd, itemListJsonLd } from "@/lib/seo";
 import { extractTags } from "@/lib/content";
 import { fetchPublishedBlogPosts } from "@/lib/data";
 import { BlogGridSkeleton } from "@/components/blog/blog-skeleton";
@@ -13,6 +13,7 @@ export const metadata = buildPageMetadata({
   description:
     "Stories, budgeting tips, and visa advice for international students living in the United Kingdom.",
   path: "/blog",
+  keywords: ["UK student blog", "international student tips", "budgeting UK", "visa advice"],
 });
 
 export const revalidate = 3600;
@@ -29,6 +30,11 @@ export default async function BlogPage() {
             { name: "Home", path: "/" },
             { name: "Blog", path: "/blog" },
           ])}
+        />
+        <JsonLd
+          data={itemListJsonLd(
+            posts.map((p) => ({ name: p.title, path: `/blog/${p.slug}` }))
+          )}
         />
         <Breadcrumbs
           items={[

@@ -8,9 +8,30 @@ const SECURITY_HEADERS: Record<string, string> = {
   "X-Content-Type-Options": "nosniff",
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+  "Strict-Transport-Security":
+    "max-age=63072000; includeSubDomains; preload",
+  "Content-Security-Policy": [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https://res.cloudinary.com",
+    "font-src 'self' https://fonts.gstatic.com https://fonts.googleapis.com",
+    "connect-src 'self' https://*.upstash.io",
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join("; "),
 };
 
 const PUBLIC_ADMIN_PATHS = ["/admin/login"];
+
+/** Validate that a callbackUrl is a safe relative path to prevent open redirect */
+function isSafeCallbackUrl(pathname: string): boolean {
+  if (!pathname.startsWith("/")) return false;
+  if (pathname.startsWith("//")) return false;
+  if (pathname.includes("\\")) return false;
+  return true;
+}
 
 function requiresAuth(pathname: string): boolean {
   if (PUBLIC_ADMIN_PATHS.includes(pathname)) return false;
@@ -23,7 +44,9 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (pathname.startsWith("/api/v1/")) {
-    const preset = pathname.includes("/admin") ? "api" : "api";
+    const preset: "api" | "admin" = pathname.includes("/admin")
+      ? "admin"
+      : "api";
     const limited = await checkRateLimit(request, preset);
     if (!limited.success) {
       return NextResponse.json(
@@ -67,7 +90,9 @@ export async function middleware(request: NextRequest) {
       }
 
       const loginUrl = new URL("/admin/login", request.url);
-      loginUrl.searchParams.set("callbackUrl", pathname);
+      if (isSafeCallbackUrl(pathname)) {
+        loginUrl.searchParams.set("callbackUrl", pathname);
+      }
       return NextResponse.redirect(loginUrl);
     }
   }

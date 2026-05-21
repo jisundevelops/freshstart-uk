@@ -20,7 +20,7 @@ export async function trackAnalyticsEvent(
       throw new ValidationError(parsed.error.message);
     }
 
-    await trackEvent(parsed.data);
+    await trackEvent(parsed.data as Parameters<typeof trackEvent>[0]);
     return { tracked: true };
   });
 }
