@@ -1,0 +1,243 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── NextAuth ───────────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  name          String?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  accounts      Account[]
+  sessions      Session[]
+  admin         Admin?
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ─── Admin ──────────────────────────────────────────────────────────────────
+
+enum AdminRole {
+  SUPER_ADMIN
+  EDITOR
+  VIEWER
+}
+
+model Admin {
+  id           String    @id @default(cuid())
+  userId       String    @unique
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  passwordHash String
+  role         AdminRole @default(EDITOR)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("admins")
+}
+
+// ─── Content ────────────────────────────────────────────────────────────────
+
+enum PublishStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model Guide {
+  id          String        @id @default(cuid())
+  slug        String        @unique
+  title       String
+  excerpt     String
+  content     String        @db.Text
+  category    String
+  coverImage  String?
+  status      PublishStatus @default(DRAFT)
+  featured    Boolean       @default(false)
+  sortOrder   Int           @default(0)
+  publishedAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([status, category])
+  @@index([slug])
+  @@map("guides")
+}
+
+model BlogPost {
+  id          String        @id @default(cuid())
+  slug        String        @unique
+  title       String
+  excerpt     String
+  content     String        @db.Text
+  authorName  String        @default("FreshStart UK Team")
+  coverImage  String?
+  tags        String[]
+  status      PublishStatus @default(DRAFT)
+  featured    Boolean       @default(false)
+  publishedAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([status])
+  @@index([slug])
+  @@map("blog_posts")
+}
+
+model Page {
+  id          String        @id @default(cuid())
+  slug        String        @unique
+  title       String
+  content     String        @db.Text
+  metaTitle   String?
+  metaDesc    String?
+  status      PublishStatus @default(DRAFT)
+  publishedAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([slug])
+  @@map("pages")
+}
+
+enum ToolCategory {
+  BANKING
+  MOBILE
+  ACCOMMODATION
+  TRANSPORT
+  HEALTH
+  GENERAL
+}
+
+model Tool {
+  id          String        @id @default(cuid())
+  slug        String        @unique
+  name        String
+  description String
+  href        String
+  icon        String?
+  category    ToolCategory  @default(GENERAL)
+  status      PublishStatus @default(PUBLISHED)
+  featured    Boolean       @default(false)
+  sortOrder   Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([category, status])
+  @@map("tools")
+}
+
+enum AffiliateCategory {
+  BANK
+  SIM
+  ACCOMMODATION
+  INSURANCE
+  SHOPPING
+  OTHER
+}
+
+model AffiliateLink {
+  id          String            @id @default(cuid())
+  slug        String            @unique
+  name        String
+  description String
+  url         String
+  category    AffiliateCategory
+  logoUrl     String?
+  promoCode   String?
+  featured    Boolean           @default(false)
+  sortOrder   Int               @default(0)
+  status      PublishStatus     @default(PUBLISHED)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([category, status])
+  @@map("affiliate_links")
+}
+
+// ─── Analytics ──────────────────────────────────────────────────────────────
+
+enum AnalyticsEventType {
+  PAGE_VIEW
+  LINK_CLICK
+  TOOL_USE
+  SEARCH
+  SIGNUP
+  CUSTOM
+}
+
+model Analytics {
+  id        String             @id @default(cuid())
+  eventType AnalyticsEventType
+  path      String
+  referrer  String?
+  sessionId String?
+  userAgent String?
+  country   String?
+  metadata  Json?
+  createdAt DateTime           @default(now())
+
+  @@index([eventType, createdAt])
+  @@index([path])
+  @@index([sessionId])
+  @@map("analytics")
+}
+
+// ─── Site config (Phase 1) ──────────────────────────────────────────────────
+
+model SiteConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("site_config")
+}
