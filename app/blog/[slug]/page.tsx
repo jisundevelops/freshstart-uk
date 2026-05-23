@@ -23,7 +23,7 @@ import { cacheGetOrSet, cacheKey } from "@/lib/redis";
 import { PublishStatus } from "@prisma/client";
 import type { Metadata } from "next";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 export const dynamicParams = true;
 
 interface BlogPostPageProps {
