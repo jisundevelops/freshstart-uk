@@ -17,61 +17,77 @@ import {
   calculateReadingTime,
   formatDate,
 } from "@/lib/content";
-import { fetchGuideBySlug, fetchPublishedGuides } from "@/lib/data";
 import { formatLabel } from "@/lib/utils";
 import { prisma } from "@/lib/prisma";
+import { cacheGetOrSet, cacheKey } from "@/lib/redis";
 import { PublishStatus } from "@prisma/client";
 import type { Metadata } from "next";
 
 export const revalidate = 3600;
+export const dynamicParams = true;
 
 interface GuidePageProps {
   params: { slug: string };
 }
 
-export async function generateStaticParams() {
-  try {
-    const guides = await prisma.guide.findMany({
-      where: { status: PublishStatus.PUBLISHED },
-      select: { slug: true },
-    });
-    return guides.map((guide) => ({ slug: guide.slug }));
-  } catch {
-    return [];
-  }
-}
-
 export async function generateMetadata({
   params,
 }: GuidePageProps): Promise<Metadata> {
-  const guide = await fetchGuideBySlug(params.slug);
-  if (!guide) {
-    return { title: "Guide not found" };
+  try {
+    const guide = await cacheGetOrSet(
+      cacheKey("guides", `slug:${params.slug}`),
+      () =>
+        prisma.guide.findFirst({
+          where: { slug: params.slug, status: PublishStatus.PUBLISHED },
+        }),
+      600
+    );
+
+    if (!guide) {
+      return { title: "Guide not found" };
+    }
+    return buildPageMetadata({
+      title: guide.title,
+      description: guide.excerpt,
+      path: `/guides/${guide.slug}`,
+      type: "article",
+      publishedTime: guide.publishedAt?.toISOString(),
+      modifiedTime: guide.updatedAt.toISOString(),
+      imagePath: guide.coverImage ?? undefined,
+      keywords: [formatLabel(guide.category), "UK student guide", guide.title],
+    });
+  } catch {
+    return { title: "Guide" };
   }
-  return buildPageMetadata({
-    title: guide.title,
-    description: guide.excerpt,
-    path: `/guides/${guide.slug}`,
-    type: "article",
-    publishedTime: guide.publishedAt?.toISOString(),
-    modifiedTime: guide.updatedAt.toISOString(),
-    imagePath: guide.coverImage ?? undefined,
-    keywords: [formatLabel(guide.category), "UK student guide", guide.title],
-  });
 }
 
 export default async function GuidePage({ params }: GuidePageProps) {
-  const guide = await fetchGuideBySlug(params.slug);
+  let guide;
+  try {
+    guide = await cacheGetOrSet(
+      cacheKey("guides", `slug:${params.slug}`),
+      () =>
+        prisma.guide.findFirst({
+          where: { slug: params.slug, status: PublishStatus.PUBLISHED },
+        }),
+      600
+    );
+  } catch {
+    notFound();
+  }
 
   if (!guide) {
     notFound();
   }
 
   const readingMinutes = calculateReadingTime(guide.content);
-  const allGuides = await fetchPublishedGuides({ limit: 20 });
-  const related = allGuides
-    .filter((g) => g.slug !== guide.slug && g.category === guide.category)
-    .slice(0, 3);
+
+  let related: Awaited<ReturnType<typeof getRelatedGuides>> = [];
+  try {
+    related = await getRelatedGuides(guide.slug, guide.category);
+  } catch {
+    // Gracefully degrade — show page without related guides
+  }
 
   const breadcrumbs = [
     { label: "Home", href: "/" },
@@ -139,4 +155,28 @@ export default async function GuidePage({ params }: GuidePageProps) {
       </Container>
     </article>
   );
+}
+
+/** Direct Prisma query for related guides */
+async function getRelatedGuides(currentSlug: string, category: string) {
+  const guides = await prisma.guide.findMany({
+    where: {
+      status: PublishStatus.PUBLISHED,
+      category,
+      slug: { not: currentSlug },
+    },
+    orderBy: [{ sortOrder: "asc" }, { publishedAt: "desc" }],
+    take: 3,
+    select: {
+      id: true,
+      slug: true,
+      title: true,
+      excerpt: true,
+      category: true,
+      coverImage: true,
+      featured: true,
+      publishedAt: true,
+    },
+  });
+  return guides;
 }

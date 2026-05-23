@@ -18,64 +18,77 @@ import {
   calculateReadingTime,
   formatDate,
 } from "@/lib/content";
-import { fetchBlogPostBySlug, fetchPublishedBlogPosts } from "@/lib/data";
 import { prisma } from "@/lib/prisma";
+import { cacheGetOrSet, cacheKey } from "@/lib/redis";
 import { PublishStatus } from "@prisma/client";
 import type { Metadata } from "next";
 
 export const revalidate = 3600;
+export const dynamicParams = true;
 
 interface BlogPostPageProps {
   params: { slug: string };
 }
 
-export async function generateStaticParams() {
-  try {
-    const posts = await prisma.blogPost.findMany({
-      where: { status: PublishStatus.PUBLISHED },
-      select: { slug: true },
-    });
-    return posts.map((post) => ({ slug: post.slug }));
-  } catch {
-    return [];
-  }
-}
-
 export async function generateMetadata({
   params,
 }: BlogPostPageProps): Promise<Metadata> {
-  const post = await fetchBlogPostBySlug(params.slug);
-  if (!post) {
-    return { title: "Article not found" };
+  try {
+    const post = await cacheGetOrSet(
+      cacheKey("blog", `slug:${params.slug}`),
+      () =>
+        prisma.blogPost.findFirst({
+          where: { slug: params.slug, status: PublishStatus.PUBLISHED },
+        }),
+      600
+    );
+
+    if (!post) {
+      return { title: "Article not found" };
+    }
+    return buildPageMetadata({
+      title: post.title,
+      description: post.excerpt,
+      path: `/blog/${post.slug}`,
+      type: "article",
+      publishedTime: post.publishedAt?.toISOString(),
+      modifiedTime: post.updatedAt.toISOString(),
+      tags: post.tags,
+      imagePath: post.coverImage ?? undefined,
+      keywords: post.tags,
+    });
+  } catch {
+    return { title: "Blog" };
   }
-  return buildPageMetadata({
-    title: post.title,
-    description: post.excerpt,
-    path: `/blog/${post.slug}`,
-    type: "article",
-    publishedTime: post.publishedAt?.toISOString(),
-    modifiedTime: post.updatedAt.toISOString(),
-    tags: post.tags,
-    imagePath: post.coverImage ?? undefined,
-    keywords: post.tags,
-  });
 }
 
 export default async function BlogPostPage({ params }: BlogPostPageProps) {
-  const post = await fetchBlogPostBySlug(params.slug);
+  let post;
+  try {
+    post = await cacheGetOrSet(
+      cacheKey("blog", `slug:${params.slug}`),
+      () =>
+        prisma.blogPost.findFirst({
+          where: { slug: params.slug, status: PublishStatus.PUBLISHED },
+        }),
+      600
+    );
+  } catch {
+    notFound();
+  }
 
   if (!post) {
     notFound();
   }
 
   const readingMinutes = calculateReadingTime(post.content);
-  const allPosts = await fetchPublishedBlogPosts({ limit: 20 });
-  const related = allPosts
-    .filter((p) => p.slug !== post.slug)
-    .filter(
-      (p) => p.tags.some((tag) => post.tags.includes(tag)) || p.featured
-    )
-    .slice(0, 3);
+
+  let related: Awaited<ReturnType<typeof getRelatedPosts>> = [];
+  try {
+    related = await getRelatedPosts(post.slug, post.tags, post.featured);
+  } catch {
+    // Gracefully degrade — show page without related posts
+  }
 
   return (
     <article className="py-12 md:py-16">
@@ -150,4 +163,33 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
       </Container>
     </article>
   );
+}
+
+/** Direct Prisma query for related posts */
+async function getRelatedPosts(
+  currentSlug: string,
+  tags: string[],
+  featured?: boolean
+) {
+  const allPosts = await prisma.blogPost.findMany({
+    where: { status: PublishStatus.PUBLISHED },
+    orderBy: { publishedAt: "desc" },
+    take: 20,
+    select: {
+      id: true,
+      slug: true,
+      title: true,
+      excerpt: true,
+      authorName: true,
+      coverImage: true,
+      tags: true,
+      featured: true,
+      publishedAt: true,
+    },
+  });
+
+  return allPosts
+    .filter((p) => p.slug !== currentSlug)
+    .filter((p) => p.tags.some((tag) => tags.includes(tag)) || p.featured)
+    .slice(0, 3);
 }
